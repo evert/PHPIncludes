@@ -12,7 +12,7 @@ Installation
 
 ```
 pear config-set auto_discover 1
-pear install pear.sabredav.org/phpincludes
+pear install pear.sabredav.org/phpincludes-alpha 
 ```
 
 Usage
