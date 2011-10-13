@@ -30,13 +30,13 @@ Usage
         If the output file already exists, it will attempt to update the existing
         includes file. It does so by looking at two markers in the file:
 
-        // Begin includes\\n
+        // Begin includes\n
         and
-        // End includes\\n
+        // End includes\n
 
-        Every before '// Begin includes\\n' will be retained, as well as everything
-        after '// End includes\\n'. Everything in between will be overwritten. The
-        \\n is a unix newline.
+        Every before '// Begin includes\n' will be retained, as well as everything
+        after '// End includes\n'. Everything in between will be overwritten. The
+        \n is a unix newline.
 
       --php52 
 
