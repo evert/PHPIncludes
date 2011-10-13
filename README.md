@@ -1,5 +1,5 @@
-PHP includes v0.1
-=================
+PHP includes v0.1.0
+===================
 
 This is a simple script that traverses your sourcecode and attempts and create
 an 'includes' file.
@@ -7,28 +7,46 @@ an 'includes' file.
 Using an includes file instead of for example autoload can have significant
 performance benefits.
 
+Installation
+------------
+
+```
+pear config-set auto_discover 1
+pear install pear.sabredav.org/phpincludes
+```
+
 Usage
 -----
 
-- Download PHPIncludes
-- Run with "php phpincludes.php [directory] [outputfile]"
- 
-If the outputfile is not supplied, output is sent to STDOUT.
+    phpincludes [--php52] <directory> [outputfile]
 
-If the output file already exists, it will attempt to update the existing
-includes file. It does so by looking at two markers in the file:
+      <directory> 
+        This is the directory that will be scanned for PHP files. 
 
-```
-// Begin includes\n
+      [outputfile]
+        Outputfile is the file PHPIncludes writes to. If it's not specified, it will
+        be sent to STDOUT
 
-and
+        If the output file already exists, it will attempt to update the existing
+        includes file. It does so by looking at two markers in the file:
 
-// End includes\n
-```
+        // Begin includes\\n
+        and
+        // End includes\\n
 
-Every before '// Begin includes\n' will be retained, as well as everything after
-'// End includes\n'. Everything in between will be overwritten. The \n is a
-unix newline.
+        Every before '// Begin includes\\n' will be retained, as well as everything
+        after '// End includes\\n'. Everything in between will be overwritten. The
+        \\n is a unix newline.
+
+      --php52 
+
+        By default every include will be prefixed with the __DIR__ constant, so that
+        every line looks like:
+
+        include __DIR__ . '/File.php';
+
+        If the php52 option is supplied, the __DIR__ constant is not used, but
+        instead every file will be prefixed with dirname(__FILE__).
 
 TODO
 ----
@@ -36,6 +54,5 @@ TODO
 - Files with no classes or interfaces are ignored, those need to be added
 - Allow checking for files with extensions other than .php
 - Split up into classes
-- Create a pear package
 
 
