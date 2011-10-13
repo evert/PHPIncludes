@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package packagerversion="1.9.4" version="2.0" xmlns="http://pear.php.net/dtd/package-2.0" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0     http://pear.php.net/dtd/tasks-1.0.xsd     http://pear.php.net/dtd/package-2.0     http://pear.php.net/dtd/package-2.0.xsd">
+ <name>PHPIncludes</name>
+ <channel>pear.sabredav.org</channel>
+ <summary>PHPIncludes allows you to easily create 'includes' files.</summary>
+ <description>PHPIncludes allows you to easily create 'includes' files containing an include statement for every PHP file in a package. It takes care of dependencies for you.</description>
+ <lead>
+  <name>Evert Pot</name>
+  <user>evert</user>
+  <email>evert@rooftopsolutions.nl</email>
+  <active>yes</active>
+ </lead>
+ <date>2011-10-13</date>
+ <version>
+  <release>0.1.0</release>
+  <api>0.1.0</api>
+ </version>
+ <stability>
+  <release>alpha</release>
+  <api>alpha</api>
+ </stability>
+ <license uri="http://www.opensource.org/licenses/mit-license.php">MIT</license>
+ <notes>
+ First release 
+ </notes>
+ <contents>
+  <dir name="/">
+   <file name="LICENSE" role="doc" />
+   <file name="README.md" role="doc" />
+   <file baseinstalldir="/" name="phpincludes" role="script">
+    <tasks:replace from="@package_version@" to="version" type="package-info" />
+   </file>
+  </dir>
+ </contents>
+ <dependencies>
+  <required>
+   <php>
+    <min>5.2.1</min>
+   </php>
+   <pearinstaller>
+    <min>1.9.0</min>
+   </pearinstaller>
+  </required>
+ </dependencies>
+ <phprelease>
+  <filelist>
+  </filelist>
+ </phprelease>
+</package>
