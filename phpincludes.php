@@ -10,13 +10,7 @@ function main($argv) {
     }
 
     $directory = $argv[1];
-    if (isset($argv[2])) {
-        $output = fopen($argv[2],'w');
-    } else {
-        $output = fopen('php://stdout');
-    }
-
-    run($directory, $output);
+    run($directory, isset($argv[2])?$argv[2]:'-');
 
 }
 
@@ -160,12 +154,50 @@ function sortClasses($classes) {
 
 function printResult($result, $output) {
 
-    fwrite($output, "<?php\n\n");
-    foreach($result as $filename) {
+    $startMarker = "// Begin includes\n";
+    $endMarker = "// End includes\n";
 
-        fwrite($output,"include '" . $filename . "';\n");
+    $header = "<?php\n\n";
+    $footer = '';  
+
+    if ($output === '-') {
+
+        $handle = fopen('php://stdout','w');
+
+    } else {
+
+        if (file_exists($output)) {
+
+            // We're updating an existing file
+            $found = preg_match(
+                '#(.*)'.preg_quote($startMarker).'(.*)' . preg_quote($endMarker) . '(.*)$#smD',
+                file_get_contents($output),
+                $matches
+            );
+            if (!$found) {
+                echo "File with name: " . $output . " was found, but we could not find the start and end-markers\n";
+                die(1);
+            }
+
+            $header = $matches[1];
+            $footer = $matches[3];
+
+        }
+
+        $handle = fopen($output,'w');
 
     }
+
+    fwrite($handle, $header);
+    fwrite($handle, $startMarker);
+    foreach($result as $filename) {
+
+        fwrite($handle,"include '" . $filename . "';\n");
+
+    }
+    fwrite($handle,$endMarker);
+    fwrite($handle,$footer);
+    fclose($handle);
 
 }
 
