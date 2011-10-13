@@ -249,9 +249,9 @@ function printResult($result, $output, $php52) {
     foreach($result as $filename) {
 
         if ($php52) {
-            fwrite($handle,"include dirname(__FILE__) . '" . $filename . "';\n");
+            fwrite($handle,"include dirname(__FILE__) . '/" . $filename . "';\n");
         } else {
-            fwrite($handle,"include __DIR__ . '" . $filename . "';\n");
+            fwrite($handle,"include __DIR__ . '/" . $filename . "';\n");
         }
 
     }
