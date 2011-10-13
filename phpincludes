@@ -248,6 +248,8 @@ function printResult($result, $output, $php52) {
     fwrite($handle, $startMarker);
     foreach($result as $filename) {
 
+        if (strpos($filename,'./')===0) $filename = substr($filename,2);
+
         if ($php52) {
             fwrite($handle,"include dirname(__FILE__) . '/" . $filename . "';\n");
         } else {
