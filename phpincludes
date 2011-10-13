@@ -1,30 +1,75 @@
+#!/usr/bin/env php 
 <?php
 
 main($argv);
 
 function main($argv) {
 
-    if (count($argv)<2) {
-        showUsage();
-        return;
+    $php52 = false;
+
+    $leftOver = array();
+
+    array_shift($argv);
+
+    foreach($argv as $arg) {
+
+        switch($arg) {
+            case '--php52' :
+                $php52 = true;
+                break;
+            default :
+                $leftOver[] = $arg;
+
+        }
+
     }
 
-    $directory = $argv[1];
-    run($directory, isset($argv[2])?$argv[2]:'-');
+    if (count($leftOver)<1 || count($leftOver)>2) {
+        showUsage();
+        die(1);
+    }
+
+    $directory = $leftOver[0];
+    run($directory, isset($leftOver[1])?$leftOver[1]:'-',$php52);
 
 }
 
 function showUsage() {
-    echo "PHPIncludes 0.1 by Evert Pot\n";
-    echo "\n";
-    echo "Usage: phpincludes directory [outputfile]";
-    echo "\n";
-    echo "Outputfile is the file PHPIncludes writes to. If it's not specified, it will\n";
-    echo "be sent to STDOUT\n"; 
-    echo "Directory is the directory to be scanned for php files.\n";
+
+    echo <<<USAGE
+PHPIncludes @package_version@ by Evert Pot
+
+phpincludes is tool that allows you to easily generate an 'includes' file for
+your package. This allows the user of your package to easily include all files
+in one go, which is often faster than using an autoloader.
+
+Class-dependencies between packages are automatically calculated, so the order
+is always correct.
+
+Usage: phpincludes [--php52] <directory> [outputfile]
+
+  <directory> 
+    This is the directory that will be scanned for PHP files. 
+
+  [outputfile]
+    Outputfile is the file PHPIncludes writes to. If it's not specified, it will
+    be sent to STDOUT
+
+  --php52 
+
+    By default every include will be prefixed with the __DIR__ constant, so that
+    every line looks like:
+
+    include __DIR__ . '/File.php';
+
+    If the php52 option is supplied, the __DIR__ constant is not used, but
+    instead every file will be prefixed with dirname(__FILE__).
+
+USAGE;
+
 }
 
-function run($directory, $output) {
+function run($directory, $output, $php52) {
 
     $err = fopen('php://stderr','w');
 
@@ -36,7 +81,7 @@ function run($directory, $output) {
 
     $result = sortClasses($result);
 
-    printResult($result, $output);
+    printResult($result, $output, $php52);
 
 }
 
@@ -152,7 +197,7 @@ function sortClasses($classes) {
 
 }
 
-function printResult($result, $output) {
+function printResult($result, $output, $php52) {
 
     $startMarker = "// Begin includes\n";
     $endMarker = "// End includes\n";
@@ -192,7 +237,11 @@ function printResult($result, $output) {
     fwrite($handle, $startMarker);
     foreach($result as $filename) {
 
-        fwrite($handle,"include '" . $filename . "';\n");
+        if ($php52) {
+            fwrite($handle,"include dirname(__FILE__) . '" . $filename . "';\n");
+        } else {
+            fwrite($handle,"include __DIR__ . '" . $filename . "';\n");
+        }
 
     }
     fwrite($handle,$endMarker);
