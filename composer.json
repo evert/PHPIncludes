@@ -1,0 +1,21 @@
+{
+    "name": "evert/phpincludes",
+    "description" : "PHPIncludes traverses your source and automatically creates an 'includes' file.",
+    "keywords" : [ "php" ],
+    "homepage" : "https://github.com/evert/PHPIncludes",
+    "license" : "BSD-3-Clause",
+    "require" : {
+        "php" : ">=5.2"
+    },
+    "authors" : [
+        {
+            "name" : "Evert Pot",
+            "email" : "evert@rooftopsolutions.nl",
+            "homepage" : "http://www.rooftopsolutions.nl/",
+            "role" : "Developer"
+        }
+    ],
+    "bin" : [
+        "phpincludes"
+    ]
+}
