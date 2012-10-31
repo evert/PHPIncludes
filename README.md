@@ -54,5 +54,6 @@ TODO
 - Files with no classes or interfaces are ignored, those need to be added
 - Allow checking for files with extensions other than .php
 - Split up into classes
+- Namespace support
 
 
