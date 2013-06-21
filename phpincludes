@@ -1,43 +1,61 @@
-#!/usr/bin/env php 
+#!/usr/bin/env php
 <?php
 
-main($argv);
+class PHPIncludes {
 
-function main($argv) {
+    protected $php52 = false;
+    protected $verbose = false;
+    protected $directory;
+    protected $output;
 
-    $php52 = false;
+    protected $stdErr;
 
-    $leftOver = array();
+    function main($argv) {
 
-    array_shift($argv);
+        $this->stdErr = fopen('php://stderr','w');
 
-    foreach($argv as $arg) {
+        $leftOver = array();
 
-        switch($arg) {
-            case '--php52' :
-                $php52 = true;
-                break;
-            default :
-                $leftOver[] = $arg;
+        array_shift($argv);
+
+        foreach($argv as $arg) {
+
+            $argSplit = explode('=',$arg,2);
+
+            switch($argSplit[0]) {
+                case '--php52' :
+                    $this->php52 = true;
+                    break;
+                case '-v' :
+                    $this->verbose = true;
+                    break;
+                default :
+                    $leftOver[] = $arg;
+
+            }
 
         }
 
+        if (count($leftOver)<1 || count($leftOver)>2) {
+            $this->showUsage();
+            return 1;
+        }
+
+        $this->directory = $leftOver[0];
+        if (isset($leftOver[1])) {
+            $this->output = $leftOver[1];
+        }
+
+        $this->run();
+
+        return 0;
+
     }
 
-    if (count($leftOver)<1 || count($leftOver)>2) {
-        showUsage();
-        die(1);
-    }
+    function showUsage() {
 
-    $directory = $leftOver[0];
-    run($directory, isset($leftOver[1])?$leftOver[1]:'-',$php52);
-
-}
-
-function showUsage() {
-
-    echo <<<USAGE
-PHPIncludes @package_version@ by Evert Pot
+        echo <<<USAGE
+PHPIncludes by Evert Pot
 
 phpincludes is tool that allows you to easily generate an 'includes' file for
 your package. This allows the user of your package to easily include all files
@@ -46,10 +64,10 @@ in one go, which is often faster than using an autoloader.
 Class-dependencies between packages are automatically calculated, so the order
 is always correct.
 
-Usage: phpincludes [--php52] <directory> [outputfile]
+Usage: phpincludes [--php52] [-v] <directory> [outputfile]
 
-  <directory> 
-    This is the directory that will be scanned for PHP files. 
+  <directory>
+    This is the directory that will be scanned for PHP files.
 
   [outputfile]
     Outputfile is the file PHPIncludes writes to. If it's not specified, it will
@@ -66,7 +84,7 @@ Usage: phpincludes [--php52] <directory> [outputfile]
     after '// End includes\\n'. Everything in between will be overwritten. The
     \\n is a unix newline.
 
-  --php52 
+  --php52
 
     By default every include will be prefixed with the __DIR__ constant, so that
     every line looks like:
@@ -76,190 +94,406 @@ Usage: phpincludes [--php52] <directory> [outputfile]
     If the php52 option is supplied, the __DIR__ constant is not used, but
     instead every file will be prefixed with dirname(__FILE__).
 
+  -v
+    The verbose option will show a lot of debugging output.
+
 USAGE;
 
-}
+    }
 
-function run($directory, $output, $php52) {
+    function run() {
 
-    $err = fopen('php://stderr','w');
+        $files = $this->findFiles();
+        $this->log("Found " . count($files) . " php files");
 
-    $files = findFiles($directory);
-    fwrite($err,"Found " . count($files) . " php files\n");
-    fwrite($err,"Parsing files\n");
-    $result = findClasses($files);
-    fwrite($err,"Calculating dependencies\n");
+        $this->log("including all files to figure out all declared classes.");
+        $result = $this->findClasses($files);
+        $this->log("Calculating dependencies\n");
 
-    $result = sortClasses($result);
+        $result = $this->sortClasses($result);
 
-    printResult($result, $output, $php52);
-
-}
-
-function findFiles($directory) {
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory));
-
-    while($it->valid()) {
-
-        if (substr($it->getFileName(),-4)==='.php') {
-            $files[] = $it->getPathName();
-        }
-        $it->next();
+        $this->printResult($result);
 
     }
 
-    return $files;
-}
+    function findFiles() {
 
-function findClasses($files) {
+        if ($this->verbose) {
+            $this->log('Finding all files..');
+        }
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($this->directory));
 
-    $classes = array();
-    foreach($files as $file) {
+        while($it->valid()) {
 
-        $tokens = token_get_all(file_get_contents($file));
-        $index = 0;
+            if (substr($it->getFileName(),-4)==='.php') {
+                $files[] = $it->getPathName();
+                $this->debug("  " . $it->getPathName(), "\n");
+            }
+            $it->next();
 
-        $lastClass = null;
+        }
 
-        while($index<count($tokens)) {
+        return $files;
+    }
 
-            $token = $tokens[$index];
+    function findClasses($files) {
 
-            // Classes and interfaces
-            if ($token[0] === T_CLASS || $token[0]===T_INTERFACE) {
-                while($tokens[$index][0] !== T_STRING) {
-                    $index++;
+        $found = array();
+
+        foreach($files as $file) {
+
+            $namespace = '';
+            $use = array();
+            $dependencies = array();
+            $className = '';
+
+            $tokens = token_get_all(file_get_contents($file));
+            for($ii=0; $ii<count($tokens); $ii++) {
+
+                $token = $tokens[$ii];
+                if (!is_array($token)) continue;
+
+                switch($token[0]) {
+
+                    default :
+                        /*
+                            die('Unexpected token: ' . token_name($token[0]));
+                         */
+                        break;
+
+                    case T_NAMESPACE :
+                        while(true) {
+                            $ii++;
+                            if (!is_array($tokens[$ii])) continue;
+
+                            switch($tokens[$ii][0]) {
+                                case T_WHITESPACE :
+                                    if ($namespace) {
+                                        break 2;
+                                    }
+                                    break;
+                                case T_NS_SEPARATOR :
+                                case T_STRING :
+                                    $namespace.=$tokens[$ii][1];
+                                    break;
+
+                            }
+
+                        }
+                        break;
+
+                    case T_USE :
+
+                        $useClass = '';;
+                        $useAs = '';
+                        $hasAs = false;
+
+                        while(true) {
+
+                            $ii++;
+
+                            $token = $tokens[$ii];
+                            if (!is_array($token)) {
+                                $token = array($token);
+                            }
+
+                            switch($token[0]) {
+                                case T_WHITESPACE :
+                                    break;
+                                case T_NS_SEPARATOR :
+                                case T_STRING :
+                                    if ($hasAs) {
+                                        $useAs.=$token[1];
+                                    } else {
+                                        $useClass.=$token[1];
+                                    }
+                                    break;
+                                case T_AS :
+                                    $hasAs = true;
+                                    break;
+                                // next declaration
+                                case ',' :
+                                    if (!$useAs) {
+                                        $r = explode('\\',$useClass);
+                                        $useAs = end($r);
+                                    }
+                                    $use[$useAs] = $useClass;
+                                    $useClass = '';
+                                    $useAs = '';
+                                    $hasAs = '';
+                                    break;
+                                case ';' :
+                                    if (!$useAs) {
+                                        $r = explode('\\',$useClass);
+                                        $useAs = end($r);
+                                    }
+                                    $use[$useAs] = $useClass;
+                                    break 2;
+                                default :
+                                    print_r($token);
+                                    if (isset($token[2])) {
+                                        echo token_name($token[0]);
+                                    }
+                                    die('unexpected-1' . $file);
+                                    break;
+
+                            }
+                        }
+                        break;
+
+                    case T_INTERFACE :
+                    case T_CLASS :
+
+                        while(true) {
+
+                            $ii++;
+
+                            $token = $tokens[$ii];
+                            if (!is_array($token)) {
+                                $token = array($token);
+                            }
+                            switch($token[0]) {
+
+                                case T_STRING :
+                                    $className.=$token[1];
+                                    break;
+                                case T_EXTENDS :
+                                case T_IMPLEMENTS :
+                                    $ii--;
+                                    break 2;
+                                case '{' :
+                                    $ii--;
+                                    // stop parsing
+                                    break 4;
+                                case T_WHITESPACE :
+                                    break;
+                                default :
+                                    print_r($token);
+                                    if (isset($token[2])) {
+                                        echo token_name($token[0]);
+                                    }
+                                    die('unexpected-2');
+                                    break;
+
+                            }
+
+                        }
+                        break;
+
+                    case T_IMPLEMENTS :
+                    case T_EXTENDS :
+                        $dep = '';
+                        while(true) {
+                            $ii++;
+
+                            $token = $tokens[$ii];
+                            if (!is_array($token)) {
+                                $token = array($token);
+                            }
+                            switch($token[0]) {
+
+                                case T_NS_SEPARATOR :
+                                case T_STRING :
+                                    $dep.=$token[1];
+                                    break;
+                                case T_WHITESPACE :
+                                    break;
+                                case '{' :
+                                    $dependencies[] = $dep;
+                                    // stop parsing
+                                    break 4;
+                                case T_IMPLEMENTS :
+                                case ',' :
+                                    $dependencies[] = $dep;
+                                    $dep = '';
+                                    break;
+                                default :
+                                    print_r($token);
+                                    if (isset($token[2])) {
+                                        echo token_name($token[0]);
+                                    }
+                                    die('unexpected-3 ' . $file);
+                                    break;
+
+                            }
+                        }
+                        break;
+
+
+                    case T_OPEN_TAG :
+                    case T_WHITESPACE :
+                    case T_DOC_COMMENT :
+                        break;
+
                 }
-                $className = $tokens[$index][1];
-                $classes[$className] = array('filename' => $file, 'dependencies' => array());
-                $lastClass = $className;
+
             }
 
-            // Extends, implements
-            if ($tokens[$index][0] === T_EXTENDS || $tokens[$index][0] === T_IMPLEMENTS) {
-                while($tokens[$index] !== '{') {
-                    $index++;
-                    if ($tokens[$index][0] === T_STRING) {
-                        $classes[$lastClass]['dependencies'][] = $tokens[$index][1];
+            // If there was no class, skip it.
+            if (!$className) {
+                continue;
+            }
+
+            // Expanding all dependencies
+            $newDeps = array();
+            foreach($dependencies as $dep) {
+                // absolute
+                if ($dep[0]==='\\') {
+                    $newDeps[] = substr($dep,1);
+                    continue;
+                }
+                $parts = explode('\\', $dep);
+                if (isset($use[$parts[0]])) {
+                    if (count($parts)>1) {
+                        $newDeps[] = $use[$parts[0]] . '\\' . implode('\\', array_slice($parts,1));
+                    } else {
+                        $newDeps[] = $use[$parts[0]];
+                    }
+                } else {
+                    $newDeps[] = $namespace . '\\' . $dep;
+                }
+            }
+
+            $fullClass = ($namespace?$namespace.'\\':'') . $className;
+            $found[$fullClass] = array(
+                'filename' => $file,
+                'dependencies' => $newDeps
+            );
+            $this->debug('  ' .$fullClass);
+            foreach($newDeps as $dep) {
+                $this->debug('    ' . $dep);
+            }
+
+        }
+
+        return $found;
+
+    }
+
+    /**
+     * This function sorts classes based on their
+     * dependencies.
+     *
+     * It does multiple loops through the classes list until every class
+     * is in the sorted list.
+     * usort didn't really work for this. Is there a more efficient way?
+     *
+     * The result is a list of filenames.
+     *
+     * @param string $classes
+     * @return array
+     */
+    function sortClasses($classes) {
+
+        $result = array();
+
+        // We need a copy
+        $fullClassList = $classes;
+
+        $fileNames = array();
+
+        while(count($classes) > 0) {
+
+            foreach($classes as $class=>$info) {
+
+                foreach($info['dependencies'] as $dep) {
+
+                    if (!isset($fullClassList[$dep])) {
+                       // This dependency does not show up in the classlist at all,
+                       // so we can safely skip it.
+                       continue;
+                    }
+                    if (!isset($result[$dep])) {
+                        // This class is not in the resultset yet, but it will be,
+                        // so we'll skip it for now.
+                        continue 2;
                     }
                 }
+
+                // All dependencies have been met.
+                // Adding it to the result, removing it from the source.
+                $result[$class] = $info;
+                $fileNames[] = $info['filename'];
+                unset($classes[$class]);
+
             }
-            $index++;
+
 
         }
 
-    }
-    return $classes;
-
-}
-
-/**
- * This function sorts classes based on their
- * dependencies.
- *
- * It does multiple loops through the classes list until every class
- * is in the sorted list.
- * usort didn't really work for this. Is there a more efficient way?
- *
- * The result is a list of filenames.
- *
- * @param string $classes
- * @return array 
- */
-function sortClasses($classes) {
-
-    $result = array();
-
-    // We need a copy
-    $fullClassList = $classes;
-
-    $fileNames = array();
-
-    while(count($classes) > 0) {
-
-        foreach($classes as $class=>$info) {
-
-            foreach($info['dependencies'] as $dep) {
-
-                if (!isset($fullClassList[$dep])) {
-                   // This dependency does not show up in the classlist at all, 
-                   // so we can safely skip it.
-                   continue;
-                }
-                if (!isset($result[$dep])) {
-                    // This class is not in the resultset yet, but it will be, 
-                    // so we'll skip it for now.
-                    continue 2;
-                }
-            }
-
-            // All dependencies have been met.
-            // Adding it to the result, removing it from the source.
-            $result[$class] = $info;
-            $fileNames[] = $info['filename'];
-            unset($classes[$class]);
-
-        }
-
+        return $fileNames;
 
     }
 
-    return $fileNames;
+    function printResult($result) {
 
-}
+        $startMarker = "// Begin includes\n";
+        $endMarker = "// End includes\n";
 
-function printResult($result, $output, $php52) {
+        $header = "<?php\n\n";
+        $footer = '';
 
-    $startMarker = "// Begin includes\n";
-    $endMarker = "// End includes\n";
+        if ($this->output === '-' || !$this->output) {
 
-    $header = "<?php\n\n";
-    $footer = '';  
+            $handle = fopen('php://stdout','w');
 
-    if ($output === '-') {
-
-        $handle = fopen('php://stdout','w');
-
-    } else {
-
-        if (file_exists($output)) {
-
-            // We're updating an existing file
-            $found = preg_match(
-                '#(.*)'.preg_quote($startMarker).'(.*)' . preg_quote($endMarker) . '(.*)$#smD',
-                file_get_contents($output),
-                $matches
-            );
-            if (!$found) {
-                echo "File with name: " . $output . " was found, but we could not find the start and end-markers\n";
-                die(1);
-            }
-
-            $header = $matches[1];
-            $footer = $matches[3];
-
-        }
-
-        $handle = fopen($output,'w');
-
-    }
-
-    fwrite($handle, $header);
-    fwrite($handle, $startMarker);
-    foreach($result as $filename) {
-
-        if (strpos($filename,'./')===0) $filename = substr($filename,2);
-
-        if ($php52) {
-            fwrite($handle,"include dirname(__FILE__) . '/" . $filename . "';\n");
         } else {
-            fwrite($handle,"include __DIR__ . '/" . $filename . "';\n");
+
+            if (file_exists($this->output)) {
+
+                // We're updating an existing file
+                $found = preg_match(
+                    '#(.*)'.preg_quote($startMarker).'(.*)' . preg_quote($endMarker) . '(.*)$#smD',
+                    file_get_contents($this->output),
+                    $matches
+                );
+                if (!$found) {
+                    $this->log("File with name: " . $this->output . " was found, but we could not find the start and end-markers");
+                    die(1);
+                }
+
+                $header = $matches[1];
+                $footer = $matches[3];
+
+            }
+
+            $handle = fopen($this->output,'w');
+
+        }
+
+        fwrite($handle, $header);
+        fwrite($handle, $startMarker);
+        foreach($result as $filename) {
+
+            if (strpos($filename,'./')===0) $filename = substr($filename,2);
+
+            if ($this->php52) {
+                fwrite($handle,"include dirname(__FILE__) . '/" . $filename . "';\n");
+            } else {
+                fwrite($handle,"include __DIR__ . '/" . $filename . "';\n");
+            }
+
+        }
+        fwrite($handle,$endMarker);
+        fwrite($handle,$footer);
+        fclose($handle);
+
+    }
+
+    function log($str) {
+
+        fwrite($this->stdErr,$str . "\n");
+
+    }
+    function debug($str) {
+
+        if ($this->verbose) {
+            fwrite($this->stdErr,$str . "\n");
         }
 
     }
-    fwrite($handle,$endMarker);
-    fwrite($handle,$footer);
-    fclose($handle);
 
 }
 
+$phpincludes = new PHPIncludes();
+die($phpincludes->main($argv));
