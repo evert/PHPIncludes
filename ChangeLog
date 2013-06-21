@@ -1,3 +1,6 @@
+0.2.0 (2013-06-13)
+	* Fixed: namespace related problems
+
 0.1.1 (2012-10-31)
 	* Added: composer package.
 
