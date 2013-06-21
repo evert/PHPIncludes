@@ -1,4 +1,4 @@
-PHP includes v0.1.0
+PHP includes v0.2.0
 ===================
 
 This is a simple script that traverses your sourcecode and attempts and create
@@ -12,7 +12,7 @@ Installation
 
 ```
 pear config-set auto_discover 1
-pear install pear.sabredav.org/phpincludes-alpha 
+pear install pear.sabredav.org/phpincludes-alpha
 ```
 
 Usage
@@ -20,8 +20,8 @@ Usage
 
     phpincludes [--php52] <directory> [outputfile]
 
-      <directory> 
-        This is the directory that will be scanned for PHP files. 
+      <directory>
+        This is the directory that will be scanned for PHP files.
 
       [outputfile]
         Outputfile is the file PHPIncludes writes to. If it's not specified, it will
@@ -38,7 +38,7 @@ Usage
         after '// End includes\n'. Everything in between will be overwritten. The
         \n is a unix newline.
 
-      --php52 
+      --php52
 
         By default every include will be prefixed with the __DIR__ constant, so that
         every line looks like:
