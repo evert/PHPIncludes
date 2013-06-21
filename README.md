@@ -1,5 +1,5 @@
-PHP includes v0.2.0
-===================
+PHP includes
+============
 
 This is a simple script that traverses your sourcecode and attempts and create
 an 'includes' file.
@@ -10,15 +10,36 @@ performance benefits.
 Installation
 ------------
 
+```json
+{
+    "require" : {
+        "evert/phpincludes" : "~0.2"
+    }
+}
 ```
-pear config-set auto_discover 1
-pear install pear.sabredav.org/phpincludes-alpha
+
+This will install the package into `vendor/evert/phpincludes`, and symlink the
+executable in `vendor/bin`. I tend to do something like this:
+
+```json
+{
+    "require" : {
+        "evert/phpincludes" : "~0.2"
+    },
+    "config" : {
+        "bin-dir" : "bin"
+    }
+}
 ```
+
+So all my project's bin files are in a local bin/ directory. On my own system
+I also have a `~/bin/` directory (in my home) and install various php
+utilities using composer.
 
 Usage
 -----
 
-    phpincludes [--php52] <directory> [outputfile]
+    phpincludes [--php52] [-v] <directory> [outputfile]
 
       <directory>
         This is the directory that will be scanned for PHP files.
@@ -48,12 +69,12 @@ Usage
         If the php52 option is supplied, the __DIR__ constant is not used, but
         instead every file will be prefixed with dirname(__FILE__).
 
+      -v
+        The verbose option will show a lot of debugging output.
+
 TODO
 ----
 
 - Files with no classes or interfaces are ignored, those need to be added
 - Allow checking for files with extensions other than .php
-- Split up into classes
-- Namespace support
-
 
